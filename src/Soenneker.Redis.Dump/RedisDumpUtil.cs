@@ -21,9 +21,9 @@ namespace Soenneker.Redis.Dump;
 /// <inheritdoc cref="IRedisDumpUtil"/>
 public sealed class RedisDumpUtil : IRedisDumpUtil
 {
-    private const int DiskCloneVersion = 1;
-    private const int KeyScanPageSize = 1000;
-    private const int DiskImportBatchSize = 1000;
+    private const int _diskCloneVersion = 1;
+    private const int _keyScanPageSize = 1000;
+    private const int _diskImportBatchSize = 1000;
 
     private readonly ILogger<RedisDumpUtil> _logger;
     private readonly IRedisClient _redisClient;
@@ -82,8 +82,8 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
             foreach (IServer server in servers)
             {
-                IAsyncEnumerable<RedisKey> keys = server.KeysAsync(database: db.Database, pageSize: KeyScanPageSize);
-                var pageKeys = new List<RedisKey>(KeyScanPageSize);
+                IAsyncEnumerable<RedisKey> keys = server.KeysAsync(database: db.Database, pageSize: _keyScanPageSize);
+                var pageKeys = new List<RedisKey>(_keyScanPageSize);
                 var pageNumber = 0;
                 var scannedKeys = 0;
                 long? currentCursor = null;
@@ -106,7 +106,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
                                 ">> REDIS: Reading disk clone key page {pageNumber} from endpoint {endpoint}. Cursor: {cursor}. Page size: {pageSize}. Keys scanned so far on endpoint: {scannedKeys}",
                                 pageNumber, server.EndPoint, scanningCursor.Cursor, scanningCursor.PageSize, scannedKeys);
                         }
-                        else if (scanningCursor is null && scannedKeys % KeyScanPageSize == 0)
+                        else if (scanningCursor is null && scannedKeys % _keyScanPageSize == 0)
                         {
                             await CloneKeyPage(db, pageKeys, keyValues, seenKeys, server.EndPoint, pageNumber, cancellationToken).NoSync();
                             pageKeys.Clear();
@@ -115,7 +115,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
                             _logger.LogInformation(
                                 ">> REDIS: Reading disk clone key page {pageNumber} from endpoint {endpoint}. Page size: {pageSize}. Keys scanned so far on endpoint: {scannedKeys}",
-                                pageNumber, server.EndPoint, KeyScanPageSize, scannedKeys);
+                                pageNumber, server.EndPoint, _keyScanPageSize, scannedKeys);
                         }
 
                         scannedKeys++;
@@ -139,7 +139,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
             var clone = new RedisDiskClone
             {
-                Version = DiskCloneVersion,
+                Version = _diskCloneVersion,
                 KeyValues = keyValues
             };
 
@@ -274,9 +274,9 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
                 return 0;
             }
 
-            if (clone.Version != DiskCloneVersion)
+            if (clone.Version != _diskCloneVersion)
                 _logger.LogWarning(">> REDIS: Importing Redis disk clone version {version}; expected {expectedVersion}", clone.Version,
-                    DiskCloneVersion);
+                    _diskCloneVersion);
 
             _logger.LogInformation(">> REDIS: Restoring {count} keys from disk clone version {version}", clone.KeyValues.Count, clone.Version);
 
@@ -284,8 +284,8 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             var count = 0;
             var failureCount = 0;
             var batchNumber = 0;
-            int totalBatches = (clone.KeyValues.Count + DiskImportBatchSize - 1) / DiskImportBatchSize;
-            var batch = new List<KeyValuePair<string, RedisDiskCloneEntry>>(DiskImportBatchSize);
+            int totalBatches = (clone.KeyValues.Count + _diskImportBatchSize - 1) / _diskImportBatchSize;
+            var batch = new List<KeyValuePair<string, RedisDiskCloneEntry>>(_diskImportBatchSize);
 
             foreach (KeyValuePair<string, RedisDiskCloneEntry> keyValue in clone.KeyValues)
             {
@@ -293,7 +293,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
                 batch.Add(keyValue);
 
-                if (batch.Count < DiskImportBatchSize)
+                if (batch.Count < _diskImportBatchSize)
                     continue;
 
                 batchNumber++;
