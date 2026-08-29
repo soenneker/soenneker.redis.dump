@@ -13,6 +13,8 @@ public static class RedisDumpUtilRegistrar
     /// <summary>
     /// Adds <see cref="IRedisDumpUtil"/> as a singleton service. <para/>
     /// </summary>
+    /// <param name="services">Service collection that receives the registration.</param>
+    /// <returns>The same service collection, so additional registrations can be chained.</returns>
     public static IServiceCollection AddRedisDumpUtilAsSingleton(this IServiceCollection services)
     {
         services.AddRedisClientAsSingleton()
@@ -24,6 +26,8 @@ public static class RedisDumpUtilRegistrar
     /// <summary>
     /// Adds <see cref="IRedisDumpUtil"/> as a scoped service. <para/>
     /// </summary>
+    /// <param name="services">Service collection that receives the registration.</param>
+    /// <returns>The same service collection, so additional registrations can be chained.</returns>
     public static IServiceCollection AddRedisDumpUtilAsScoped(this IServiceCollection services)
     {
         services.AddRedisClientAsSingleton()
