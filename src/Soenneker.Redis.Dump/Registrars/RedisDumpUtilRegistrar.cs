@@ -6,12 +6,12 @@ using Soenneker.Redis.Dump.Abstract;
 namespace Soenneker.Redis.Dump.Registrars;
 
 /// <summary>
-/// Redis database export, import, and copy utilities for .NET
+/// Registers Redis export and import services.
 /// </summary>
 public static class RedisDumpUtilRegistrar
 {
     /// <summary>
-    /// Adds <see cref="IRedisDumpUtil"/> as a singleton service. <para/>
+    /// Adds <see cref="IRedisDumpUtil"/> and its backing Redis client as singleton services.
     /// </summary>
     /// <param name="services">Service collection that receives the registration.</param>
     /// <returns>The same service collection, so additional registrations can be chained.</returns>
@@ -24,7 +24,7 @@ public static class RedisDumpUtilRegistrar
     }
 
     /// <summary>
-    /// Adds <see cref="IRedisDumpUtil"/> as a scoped service. <para/>
+    /// Adds a scoped <see cref="IRedisDumpUtil"/> backed by a singleton Redis client.
     /// </summary>
     /// <param name="services">Service collection that receives the registration.</param>
     /// <returns>The same service collection, so additional registrations can be chained.</returns>

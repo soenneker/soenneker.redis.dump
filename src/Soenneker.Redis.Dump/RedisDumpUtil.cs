@@ -18,7 +18,6 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Redis.Dump;
 
-/// <inheritdoc cref="IRedisDumpUtil"/>
 public sealed class RedisDumpUtil : IRedisDumpUtil
 {
     private const int _diskCloneVersion = 1;
@@ -128,6 +127,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
                     catch (Exception e)
                     {
                         _logger.LogError(e, ">> REDIS: Error cloning key to disk: {key}", redisKey.ToString());
+                        throw;
                     }
                 }
 
@@ -148,7 +148,18 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             if (!directory.IsNullOrEmpty())
                 Directory.CreateDirectory(directory);
 
-            await JsonUtil.SerializeToFile(clone, filePath, JsonOptionType.Pretty, cancellationToken: cancellationToken).NoSync();
+            string temporaryPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+
+            try
+            {
+                await JsonUtil.SerializeToFile(clone, temporaryPath, JsonOptionType.Pretty, cancellationToken: cancellationToken).NoSync();
+                File.Move(temporaryPath, filePath, true);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
 
             _logger.LogInformation(">> REDIS: Completed disk clone to {filePath}. Keys cloned: {count}", filePath, keyValues.Count);
 
@@ -157,7 +168,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
         catch (Exception e)
         {
             _logger.LogError(e, ">> REDIS: Error cloning keys to disk: {filePath}", filePath);
-            return 0;
+            throw;
         }
     }
 
@@ -225,6 +236,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             catch (Exception e)
             {
                 _logger.LogError(e, ">> REDIS: Error cloning key to disk: {key}", pendingEntry.RedisKey);
+                throw;
             }
         }
 
@@ -275,8 +287,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             }
 
             if (clone.Version != _diskCloneVersion)
-                _logger.LogWarning(">> REDIS: Importing Redis disk clone version {version}; expected {expectedVersion}", clone.Version,
-                    _diskCloneVersion);
+                throw new InvalidDataException($"Redis disk clone version {clone.Version} is not supported; expected version {_diskCloneVersion}.");
 
             _logger.LogInformation(">> REDIS: Restoring {count} keys from disk clone version {version}", clone.KeyValues.Count, clone.Version);
 
@@ -322,7 +333,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
         catch (Exception e)
         {
             _logger.LogError(e, ">> REDIS: Error importing keys from disk: {filePath}", filePath);
-            return 0;
+            throw;
         }
     }
 
@@ -375,35 +386,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             totalBatches, pendingEntries.Count);
 
         foreach (RedisDiskImportPendingEntry pendingEntry in pendingEntries)
-            pendingEntry.DeleteTask = db.KeyDeleteAsync(pendingEntry.RedisKey);
-
-        var deleteFailureCount = 0;
-
-        foreach (RedisDiskImportPendingEntry pendingEntry in pendingEntries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                _ = await pendingEntry.DeleteTask!.WaitAsync(cancellationToken).NoSync();
-                pendingEntry.DeleteSucceeded = true;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception e)
-            {
-                deleteFailureCount++;
-                _logger.LogError(e, ">> REDIS: Error deleting key before disk import restore: {key}", pendingEntry.RedisKey);
-            }
-        }
-
-        foreach (RedisDiskImportPendingEntry pendingEntry in pendingEntries)
-        {
-            if (pendingEntry.DeleteSucceeded)
-                pendingEntry.RestoreTask = db.KeyRestoreAsync(pendingEntry.RedisKey, pendingEntry.Value, pendingEntry.TimeToLive);
-        }
+            pendingEntry.RestoreTask = RestoreReplacing(db, pendingEntry);
 
         var importedCount = 0;
         var restoreFailureCount = 0;
@@ -411,9 +394,6 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
         foreach (RedisDiskImportPendingEntry pendingEntry in pendingEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            if (!pendingEntry.DeleteSucceeded)
-                continue;
 
             try
             {
@@ -431,7 +411,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             }
         }
 
-        failureCount += deleteFailureCount + restoreFailureCount;
+        failureCount += restoreFailureCount;
 
         if (failureCount > 0)
         {
@@ -447,6 +427,12 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
         }
 
         return (importedCount, failureCount);
+    }
+
+    private static async Task RestoreReplacing(IDatabase db, RedisDiskImportPendingEntry entry)
+    {
+        long ttlMilliseconds = entry.TimeToLive is { } ttl ? Math.Max(1, (long)Math.Ceiling(ttl.TotalMilliseconds)) : 0;
+        _ = await db.ExecuteAsync("RESTORE", entry.RedisKey, ttlMilliseconds, entry.Value, "REPLACE").NoSync();
     }
 
     private List<IServer> GetWritableServers(ConnectionMultiplexer connection)

@@ -18,9 +18,5 @@ internal sealed class RedisDiskImportPendingEntry
 
     public TimeSpan? TimeToLive { get; }
 
-    public Task<bool>? DeleteTask { get; set; }
-
     public Task? RestoreTask { get; set; }
-
-    public bool DeleteSucceeded { get; set; }
 }

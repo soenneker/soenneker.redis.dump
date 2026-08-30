@@ -76,10 +76,7 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
             await _util.CloneToDisk(filePath, _connectionString, cancellationToken);
             await KeepOnlyRedisKey(filePath, redisKey, cancellationToken);
 
-            await db.KeyDeleteAsync(redisKey);
-
-            RedisValue removedValue = await db.StringGetAsync(redisKey);
-            removedValue.IsNull.Should().BeTrue();
+            await db.StringSetAsync(redisKey, "destination-value");
 
             int count = await _util.ImportFromDisk(filePath, _connectionString, cancellationToken);
 
@@ -106,9 +103,11 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
     private static async Task KeepOnlyRedisKey(string filePath, string redisKey, CancellationToken cancellationToken)
     {
         string json = await File.ReadAllTextAsync(filePath, cancellationToken);
-        JsonObject? node = JsonUtil.Deserialize<JsonObject>(json);
+        JsonObject? node = JsonNode.Parse(json) as JsonObject;
 
-        if (node?["keyValues"] is not JsonObject keyValues)
+        JsonObject? keyValues = node?["KeyValues"] as JsonObject ?? node?["keyValues"] as JsonObject;
+
+        if (keyValues is null)
             throw new InvalidOperationException("Redis clone file did not contain keyValues.");
 
         foreach (string key in keyValues.Select(item => item.Key).Where(item => item != redisKey).ToArray())

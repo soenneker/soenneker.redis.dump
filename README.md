@@ -1,43 +1,49 @@
 [![](https://img.shields.io/nuget/v/soenneker.redis.dump.svg?style=for-the-badge)](https://www.nuget.org/packages/soenneker.redis.dump/)
 [![](https://img.shields.io/github/actions/workflow/status/soenneker/soenneker.redis.dump/publish-package.yml?style=for-the-badge)](https://github.com/soenneker/soenneker.redis.dump/actions/workflows/publish-package.yml)
 [![](https://img.shields.io/nuget/dt/soenneker.redis.dump.svg?style=for-the-badge)](https://www.nuget.org/packages/soenneker.redis.dump/)
+[![](https://img.shields.io/github/actions/workflow/status/soenneker/soenneker.redis.dump/build-and-test.yml?label=build%20and%20test&style=for-the-badge)](https://github.com/soenneker/soenneker.redis.dump/actions/workflows/build-and-test.yml)
+[![](https://img.shields.io/github/actions/workflow/status/soenneker/soenneker.redis.dump/codeql.yml?label=CodeQL&style=for-the-badge)](https://github.com/soenneker/soenneker.redis.dump/actions/workflows/codeql.yml)
 
 # Soenneker.Redis.Dump
 
-Redis database export, import, and copy utilities for .NET.
+Exports Redis keys and TTLs to a portable JSON file and restores that file into a Redis database.
 
-## Install
+## Installation
 
 ```bash
 dotnet add package Soenneker.Redis.Dump
 ```
 
-## Quick start
+## Registration
 
 ```csharp
 using Soenneker.Redis.Dump.Registrars;
-using Microsoft.Extensions.DependencyInjection;
 
-var services = new ServiceCollection();
-var result = services.AddRedisDumpUtilAsSingleton();
+services.AddRedisDumpUtilAsSingleton();
 ```
 
-Adds `IRedisDumpUtil` as a singleton service.
+Both registrars use a singleton `IRedisClient`, so a scoped dump utility can be destroyed without closing the application's shared Redis connections.
 
-## What you get
+## Export and import
 
-- `IRedisDumpUtil` — Redis database export, import, and copy utilities for .NET.
-- `RedisDumpUtilRegistrar` — Redis database export, import, and copy utilities for .NET.
+```csharp
+using Soenneker.Redis.Dump.Abstract;
 
-## API at a glance
+IRedisDumpUtil dump = serviceProvider.GetRequiredService<IRedisDumpUtil>();
 
-| API | What it does | Result / important behavior |
-| --- | --- | --- |
-| `IRedisDumpUtil.CloneToDisk(filePath, connectionString, cancellationToken)` | Clones all keys from the specified Redis connection string to a single JSON file on disk. | The number of keys written to disk. |
-| `IRedisDumpUtil.ImportFromDisk(filePath, connectionString, cancellationToken)` | Imports keys from a JSON file created by a clone operation into the specified Redis connection string. | The number of keys imported into Redis. |
-| `RedisDumpUtilRegistrar.AddRedisDumpUtilAsSingleton(services)` | Adds `IRedisDumpUtil` as a singleton service. | The same service collection, so additional registrations can be chained. |
-| `RedisDumpUtilRegistrar.AddRedisDumpUtilAsScoped(services)` | Adds `IRedisDumpUtil` as a scoped service. | The same service collection, so additional registrations can be chained. |
+int exported = await dump.CloneToDisk(
+    "backups/redis.json",
+    sourceConnectionString,
+    cancellationToken);
 
-## Practical notes
+int imported = await dump.ImportFromDisk(
+    "backups/redis.json",
+    destinationConnectionString,
+    cancellationToken);
+```
 
-- Cancellation stops pending work; it does not undo work that has already completed.
+Export scans writable endpoints, stores Redis's serialized value for each key, and preserves positive TTLs. The destination file is replaced only after the complete JSON document has been written.
+
+Import overwrites matching keys using atomic per-key `RESTORE ... REPLACE` operations. It does not delete destination-only keys, and the overall import is not a cross-key transaction. The return value is the number of successfully restored keys; malformed individual entries are logged and skipped. Connection, file, cancellation, and unsupported-format failures are thrown to the caller.
+
+The Redis account needs permission for `SCAN`, `DUMP`, `PTTL`, and `RESTORE`. Configure access accordingly; this package does not enable administrative commands automatically.
