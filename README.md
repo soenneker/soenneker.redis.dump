@@ -46,4 +46,4 @@ Export scans writable endpoints, stores Redis's serialized value for each key, a
 
 Import overwrites matching keys using atomic per-key `RESTORE ... REPLACE` operations. It does not delete destination-only keys, and the overall import is not a cross-key transaction. The return value is the number of successfully restored keys; malformed individual entries are logged and skipped. Connection, file, cancellation, and unsupported-format failures are thrown to the caller.
 
-The Redis account needs permission for `SCAN`, `DUMP`, `PTTL`, and `RESTORE`. Configure access accordingly; this package does not enable administrative commands automatically.
+The Redis account needs permission for `SCAN`, `DUMP`, `PTTL`, and `RESTORE`. The shared Soenneker Redis client also enables StackExchange.Redis administrative commands for server-utility compatibility, so restrict its credentials and network access appropriately.
