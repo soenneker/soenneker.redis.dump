@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Soenneker.Enums.JsonOptions;
+using Soenneker.Extensions.Arrays.Bytes;
 using Soenneker.Extensions.String;
 using Soenneker.Extensions.Task;
 using Soenneker.Extensions.ValueTask;
@@ -215,7 +216,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
                 keyValues[pendingEntry.RedisKey] = new RedisDiskCloneEntry
                 {
-                    Value = Convert.ToBase64String(value),
+                    Value = value.ToBase64String(),
                     TimeToLiveMilliseconds = ttlMilliseconds
                 };
 
@@ -352,7 +353,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
                 if (value.IsNullOrEmpty())
                     continue;
 
-                byte[] dumpedValue = Convert.FromBase64String(value);
+                byte[] dumpedValue = value.ToBytesFromBase64();
                 TimeSpan? ttl = null;
 
                 if (keyValue.Value.TimeToLiveMilliseconds is > 0)
