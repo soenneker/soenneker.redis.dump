@@ -7,6 +7,7 @@ using Soenneker.Redis.Client.Abstract;
 using Soenneker.Redis.Dump.Abstract;
 using Soenneker.Redis.Dump.Models;
 using Soenneker.Utils.Json;
+using Soenneker.Utils.File.Abstract;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
@@ -26,11 +27,13 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
     private readonly ILogger<RedisDumpUtil> _logger;
     private readonly IRedisClient _redisClient;
+    private readonly IFileUtil _fileUtil;
 
-    public RedisDumpUtil(ILogger<RedisDumpUtil> logger, IRedisClient redisClient)
+    public RedisDumpUtil(ILogger<RedisDumpUtil> logger, IRedisClient redisClient, IFileUtil fileUtil)
     {
         _logger = logger;
         _redisClient = redisClient;
+        _fileUtil = fileUtil;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -146,20 +149,9 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             string? directory = Path.GetDirectoryName(filePath);
 
             if (!directory.IsNullOrEmpty())
-                Directory.CreateDirectory(directory);
+                await _fileUtil.CreateDirectory(directory, cancellationToken).NoSync();
 
-            string temporaryPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-
-            try
-            {
-                await JsonUtil.SerializeToFile(clone, temporaryPath, JsonOptionType.Pretty, cancellationToken: cancellationToken).NoSync();
-                File.Move(temporaryPath, filePath, true);
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
-            }
+            await JsonUtil.SerializeToFile(clone, filePath, JsonOptionType.Pretty, cancellationToken: cancellationToken).NoSync();
 
             _logger.LogInformation(">> REDIS: Completed disk clone to {filePath}. Keys cloned: {count}", filePath, keyValues.Count);
 
@@ -261,7 +253,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             return 0;
         }
 
-        if (!File.Exists(filePath))
+        if (!await _fileUtil.Exists(filePath, cancellationToken).NoSync())
         {
             _logger.LogError(">> REDIS: Skipping ImportFromDisk because the file does not exist: {filePath}", filePath);
             return 0;

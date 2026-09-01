@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Soenneker.Redis.Client.Registrars;
 using Soenneker.Redis.Dump.Abstract;
+using Soenneker.Utils.File.Registrars;
 
 namespace Soenneker.Redis.Dump.Registrars;
 
@@ -18,6 +19,7 @@ public static class RedisDumpUtilRegistrar
     public static IServiceCollection AddRedisDumpUtilAsSingleton(this IServiceCollection services)
     {
         services.AddRedisClientAsSingleton()
+                .AddFileUtilAsSingleton()
                 .TryAddSingleton<IRedisDumpUtil, RedisDumpUtil>();
 
         return services;
@@ -31,6 +33,7 @@ public static class RedisDumpUtilRegistrar
     public static IServiceCollection AddRedisDumpUtilAsScoped(this IServiceCollection services)
     {
         services.AddRedisClientAsSingleton()
+                .AddFileUtilAsScoped()
                 .TryAddScoped<IRedisDumpUtil, RedisDumpUtil>();
 
         return services;
