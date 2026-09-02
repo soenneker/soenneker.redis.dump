@@ -32,9 +32,8 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
     }
 
     [Test]
-    public async Task CloneToDisk_should_write_redis_keys_to_file()
+    public async Task CloneToDisk_should_write_redis_keys_to_file(CancellationToken cancellationToken)
     {
-        var cancellationToken = CancellationToken.None;
         string redisKey = $"test:{Faker.Random.AlphaNumeric(20)}";
         string value = Faker.Random.AlphaNumeric(20);
         string filePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.json");
@@ -62,9 +61,8 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
     }
 
     [Test]
-    public async Task ImportFromDisk_should_restore_cloned_keys()
+    public async Task ImportFromDisk_should_restore_cloned_keys(CancellationToken cancellationToken)
     {
-        var cancellationToken = CancellationToken.None;
         string redisKey = $"test:{Faker.Random.AlphaNumeric(20)}";
         string value = Faker.Random.AlphaNumeric(20);
         string filePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.json");
