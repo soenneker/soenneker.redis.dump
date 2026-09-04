@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Redis.Dump;
 
+/// <inheritdoc cref="IRedisDumpUtil" />
 public sealed class RedisDumpUtil : IRedisDumpUtil
 {
     private const int _diskCloneVersion = 1;
