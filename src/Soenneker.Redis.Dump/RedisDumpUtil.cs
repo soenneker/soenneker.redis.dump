@@ -197,7 +197,8 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
 
             try
             {
-                await Task.WhenAll(pendingEntry.TimeToLiveTask, pendingEntry.ValueTask).WaitAsync(cancellationToken).NoSync();
+                if (!pendingEntry.TimeToLiveTask.IsCompletedSuccessfully || !pendingEntry.ValueTask.IsCompletedSuccessfully)
+                    await Task.WhenAll(pendingEntry.TimeToLiveTask, pendingEntry.ValueTask).WaitAsync(cancellationToken).NoSync();
 
                 TimeSpan? ttl = pendingEntry.TimeToLiveTask.Result;
                 long? ttlMilliseconds = null;

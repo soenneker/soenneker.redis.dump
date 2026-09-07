@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Redis.Dump.Models;
 
-internal sealed class RedisDiskClonePendingEntry
+internal readonly struct RedisDiskClonePendingEntry
 {
     public RedisDiskClonePendingEntry(string redisKey, Task<TimeSpan?> timeToLiveTask, Task<byte[]?> valueTask)
     {
