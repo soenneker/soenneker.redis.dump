@@ -45,6 +45,6 @@
     <ItemGroup>
         <PackageReference Include="Soenneker.Redis.Client" Version="4.0.2325" />
         <PackageReference Include="Soenneker.Utils.Json" Version="4.0.2691" />
-        <PackageReference Include="Soenneker.Extensions.Arrays.Bytes" Version="4.0.66" />
+        <PackageReference Include="Soenneker.Extensions.Arrays.Bytes" Version="4.0.67" />
     </ItemGroup>
 </Project>
