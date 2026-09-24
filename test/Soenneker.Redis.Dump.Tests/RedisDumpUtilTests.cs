@@ -1,3 +1,4 @@
+using Soenneker.Utils.File.Abstract;
 using System;
 using System.IO;
 using System.Linq;
@@ -18,12 +19,15 @@ namespace Soenneker.Redis.Dump.Tests;
 [ClassDataSource<Host>(Shared = SharedType.PerTestSession)]
 public sealed class RedisDumpUtilTests : HostedUnitTest
 {
+    private readonly IFileUtil _fileUtil;
+
     private readonly IRedisDumpUtil _util;
     private readonly IRedisClient _redisClient;
     private readonly string _connectionString;
 
     public RedisDumpUtilTests(Host host) : base(host)
     {
+        _fileUtil = Resolve<IFileUtil>(true);
         _util = Resolve<IRedisDumpUtil>(true);
         _redisClient = Resolve<IRedisClient>(true);
 
@@ -46,17 +50,17 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
             int count = await _util.CloneToDisk(filePath, _connectionString, cancellationToken);
 
             count.Should().BeGreaterThan(0);
-            File.Exists(filePath).Should().BeTrue();
+            (await _fileUtil.Exists(filePath)).Should().BeTrue();
 
-            string json = await File.ReadAllTextAsync(filePath, cancellationToken);
+            string json = await _fileUtil.Read(filePath, cancellationToken: cancellationToken);
             json.Should().Contain(redisKey);
         }
         finally
         {
             await db.KeyDeleteAsync(redisKey);
 
-            if (File.Exists(filePath))
-                File.Delete(filePath);
+            if ((await _fileUtil.Exists(filePath)))
+                await _fileUtil.Delete(filePath);
         }
     }
 
@@ -87,8 +91,8 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
         {
             await db.KeyDeleteAsync(redisKey);
 
-            if (File.Exists(filePath))
-                File.Delete(filePath);
+            if ((await _fileUtil.Exists(filePath)))
+                await _fileUtil.Delete(filePath);
         }
     }
 
@@ -98,9 +102,9 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
         return connection.GetDatabase();
     }
 
-    private static async Task KeepOnlyRedisKey(string filePath, string redisKey, CancellationToken cancellationToken)
+    private async Task KeepOnlyRedisKey(string filePath, string redisKey, CancellationToken cancellationToken)
     {
-        string json = await File.ReadAllTextAsync(filePath, cancellationToken);
+        string json = await _fileUtil.Read(filePath, cancellationToken: cancellationToken);
         JsonObject? node = JsonNode.Parse(json) as JsonObject;
 
         JsonObject? keyValues = node?["KeyValues"] as JsonObject ?? node?["keyValues"] as JsonObject;
@@ -112,6 +116,6 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
             keyValues.Remove(key);
 
         string filteredJson = JsonUtil.Serialize(node, JsonOptionType.Pretty)!;
-        await File.WriteAllTextAsync(filePath, filteredJson, cancellationToken);
+        await _fileUtil.Write(filePath, filteredJson, cancellationToken: cancellationToken);
     }
 }
