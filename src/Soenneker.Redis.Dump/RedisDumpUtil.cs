@@ -153,7 +153,7 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             if (!directory.IsNullOrEmpty())
                 await _fileUtil.CreateDirectory(directory, cancellationToken).NoSync();
 
-            await JsonUtil.SerializeToFile(clone, filePath, JsonOptionType.Pretty, cancellationToken: cancellationToken).NoSync();
+            await WriteClone(clone, filePath, cancellationToken).NoSync();
 
             _logger.LogInformation(">> REDIS: Completed disk clone to {filePath}. Keys cloned: {count}", filePath, keyValues.Count);
 
@@ -267,7 +267,8 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
             var fileInfo = new FileInfo(filePath);
             _logger.LogInformation(">> REDIS: Starting disk import from {filePath}. File size: {bytes} bytes", filePath, fileInfo.Length);
 
-            RedisDiskClone? clone = await JsonUtil.DeserializeFromFile<RedisDiskClone>(filePath, _logger, cancellationToken).NoSync();
+            await using var cloneStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true);
+            RedisDiskClone? clone = await JsonUtil.Deserialize(cloneStream, LibraryJsonContext.Get<RedisDiskClone>(), _logger, cancellationToken).NoSync();
 
             if (clone is null)
             {
@@ -478,4 +479,22 @@ public sealed class RedisDumpUtil : IRedisDumpUtil
         return servers;
     }
 
+    private static async ValueTask WriteClone(RedisDiskClone clone, string path, CancellationToken cancellationToken)
+    {
+        string fullPath = Path.GetFullPath(path);
+        string temporaryPath = Path.Combine(Path.GetDirectoryName(fullPath)!, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, useAsync: true))
+            {
+                await JsonUtil.SerializeToStream(stream, clone, LibraryJsonContext.Get<RedisDiskClone>(), cancellationToken).NoSync();
+                await stream.FlushAsync(cancellationToken).NoSync();
+            }
+            System.IO.File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        finally
+        {
+            System.IO.File.Delete(temporaryPath);
+        }
+    }
 }
