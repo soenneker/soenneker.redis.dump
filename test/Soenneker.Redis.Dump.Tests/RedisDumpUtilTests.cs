@@ -50,7 +50,7 @@ public sealed class RedisDumpUtilTests : HostedUnitTest
             int count = await _util.CloneToDisk(filePath, _connectionString, cancellationToken);
 
             count.Should().BeGreaterThan(0);
-            (await _fileUtil.Exists(filePath)).Should().BeTrue();
+            (await _fileUtil.Exists(filePath, cancellationToken: cancellationToken)).Should().BeTrue();
 
             string json = await _fileUtil.Read(filePath, cancellationToken: cancellationToken);
             json.Should().Contain(redisKey);
